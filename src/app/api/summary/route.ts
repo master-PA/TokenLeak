@@ -51,7 +51,7 @@ export async function POST(req: Request) {
     );
   }
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     return NextResponse.json({ summary: fallbackSummary(parsed.data) });
   }
@@ -74,32 +74,51 @@ export async function POST(req: Request) {
   ].join("\n");
 
   try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(
+        apiKey,
+      )}`,
+      {
       method: "POST",
       headers: {
         "content-type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: "claude-3-5-sonnet-latest",
-        max_tokens: 180,
-        temperature: 0.4,
-        system:
-          "You are a careful financial analyst. Output a single paragraph only.",
-        messages: [{ role: "user", content: userPrompt }],
+        contents: [
+          {
+            role: "user",
+            parts: [
+              {
+                text: [
+                  "You are a careful financial analyst.",
+                  "Output a single paragraph only.",
+                  "",
+                  userPrompt,
+                ].join("\n"),
+              },
+            ],
+          },
+        ],
+        generationConfig: {
+          temperature: 0.4,
+          maxOutputTokens: 220,
+        },
       }),
-    });
+      },
+    );
 
     if (!res.ok) {
       return NextResponse.json({ summary: fallbackSummary(parsed.data) });
     }
 
     const data = (await res.json()) as {
-      content?: Array<{ type: string; text?: string }>;
+      candidates?: Array<{
+        content?: { parts?: Array<{ text?: string }> };
+      }>;
     };
     const text =
-      data.content?.find((c) => c.type === "text")?.text?.trim() ?? "";
+      data.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("")?.trim() ??
+      "";
     if (!text) {
       return NextResponse.json({ summary: fallbackSummary(parsed.data) });
     }

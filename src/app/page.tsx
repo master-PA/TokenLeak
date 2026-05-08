@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 
 export default function Home() {
   return (
@@ -6,8 +7,18 @@ export default function Home() {
       <header className="border-b border-zinc-200 bg-white">
         <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-4 py-4">
           <div className="flex items-baseline gap-2">
-            <div className="text-sm font-semibold tracking-tight text-zinc-950">
-              TokenLeak
+            <div className="flex items-center gap-2">
+              <Image
+                src="/tokenleak-logo.png"
+                alt="TokenLeak"
+                width={24}
+                height={24}
+                className="h-6 w-6"
+                priority
+              />
+              <div className="text-sm font-semibold tracking-tight text-zinc-950">
+                TokenLeak
+              </div>
             </div>
             <div className="text-xs text-zinc-500">AI Spend Audit</div>
           </div>

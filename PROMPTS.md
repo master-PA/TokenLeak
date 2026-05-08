@@ -1,6 +1,6 @@
 # PROMPTS
 
-## Summary prompt (server-side, `/api/summary`)
+## Summary prompt (server-side, `/api/summary`) — Gemini
 
 ### System
 You are a careful financial analyst. Output a single paragraph only.

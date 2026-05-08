@@ -22,7 +22,7 @@ Create a local `.env.local` with:
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `RESEND_API_KEY`
 - `RESEND_FROM`
-- `ANTHROPIC_API_KEY`
+- `GEMINI_API_KEY`
 
 Supabase schema: see `SUPABASE_SCHEMA.md`.
 

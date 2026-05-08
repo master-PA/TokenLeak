@@ -6,6 +6,7 @@ import { z } from "zod";
 import type { PrimaryUseCase, SpendAuditInput, ToolPlan } from "@/lib/tools";
 import { runAudit } from "@/lib/auditEngine";
 import { readLocalStorageJson, writeLocalStorageJson } from "@/lib/localStorage";
+import Image from "next/image";
 
 const STORAGE_KEY = "tokenleak:v1:audit_input";
 
@@ -107,50 +108,41 @@ const persistedSchema = z.object({
   ),
 });
 
-function loadInitialState(): {
-  teamSize: number;
-  primaryUseCase: PrimaryUseCase;
-  tools: ToolRow[];
-} {
-  if (typeof window === "undefined") {
-    return { teamSize: 3, primaryUseCase: "coding", tools: toolDefaults };
+function toolTagline(tool: ToolPlan["tool"]): string {
+  switch (tool) {
+    case "cursor":
+      return "Editor + coding agent";
+    case "github_copilot":
+      return "Inline code completion";
+    case "claude":
+      return "Chat + coding + research";
+    case "chatgpt":
+      return "Chat + data + general";
+    case "anthropic_api":
+      return "Metered usage (tokens)";
+    case "openai_api":
+      return "Metered usage (tokens)";
+    case "gemini":
+      return "Google AI plans + API";
+    case "v0":
+      return "UI generation";
   }
+}
 
-  const raw = readLocalStorageJson<unknown>(STORAGE_KEY);
-  const parsed = persistedSchema.safeParse(raw);
-  if (!parsed.success) {
-    return { teamSize: 3, primaryUseCase: "coding", tools: toolDefaults };
-  }
-
-  const byTool = new Map(parsed.data.tools.map((t) => [t.tool, t]));
-  const tools = toolDefaults.map((row) => {
-    const saved = byTool.get(row.tool);
-    if (!saved) return row;
-    const allowedPlans = toolPlanOptions[row.tool] as string[];
-    const plan = allowedPlans.includes(saved.plan) ? saved.plan : row.plan;
-    return {
-      ...row,
-      enabled: saved.enabled,
-      plan: plan as ToolPlan["plan"],
-      monthlySpendUsd: saved.monthlySpendUsd,
-      seats: saved.seats,
-    };
-  });
-
-  return {
-    teamSize: parsed.data.teamSize,
-    primaryUseCase: parsed.data.primaryUseCase,
-    tools,
-  };
+function formatUsd(n: number): string {
+  if (!Number.isFinite(n)) return "$0";
+  const v = Math.max(0, n);
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: v >= 100 ? 0 : 2,
+  }).format(v);
 }
 
 export default function AuditPage() {
-  const initial = useMemo(() => loadInitialState(), []);
-  const [teamSize, setTeamSize] = useState<number>(initial.teamSize);
-  const [primaryUseCase, setPrimaryUseCase] = useState<PrimaryUseCase>(
-    initial.primaryUseCase,
-  );
-  const [tools, setTools] = useState<ToolRow[]>(initial.tools);
+  const [teamSize, setTeamSize] = useState<number>(3);
+  const [primaryUseCase, setPrimaryUseCase] = useState<PrimaryUseCase>("coding");
+  const [tools, setTools] = useState<ToolRow[]>(toolDefaults);
   const [shareState, setShareState] = useState<
     | { status: "idle" }
     | { status: "creating" }
@@ -173,6 +165,33 @@ export default function AuditPage() {
   const [leadCompany, setLeadCompany] = useState("");
   const [leadRole, setLeadRole] = useState("");
   const [honeypot, setHoneypot] = useState("");
+
+  useEffect(() => {
+    const raw = readLocalStorageJson<unknown>(STORAGE_KEY);
+    const parsed = persistedSchema.safeParse(raw);
+    if (!parsed.success) return;
+
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setTeamSize(parsed.data.teamSize);
+    setPrimaryUseCase(parsed.data.primaryUseCase);
+
+    const byTool = new Map(parsed.data.tools.map((t) => [t.tool, t]));
+    setTools(
+      toolDefaults.map((row) => {
+        const saved = byTool.get(row.tool);
+        if (!saved) return row;
+        const allowedPlans = toolPlanOptions[row.tool] as string[];
+        const plan = allowedPlans.includes(saved.plan) ? saved.plan : row.plan;
+        return {
+          ...row,
+          enabled: saved.enabled,
+          plan: plan as ToolPlan["plan"],
+          monthlySpendUsd: saved.monthlySpendUsd,
+          seats: saved.seats,
+        };
+      }),
+    );
+  }, []);
 
   useEffect(() => {
     writeLocalStorageJson(STORAGE_KEY, {
@@ -230,8 +249,16 @@ export default function AuditPage() {
     <div className="min-h-full bg-zinc-50">
       <header className="border-b border-zinc-200 bg-white">
         <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-4 py-4">
-          <Link href="/" className="text-sm font-semibold text-zinc-950">
-            TokenLeak
+          <Link href="/" className="flex items-center gap-2">
+            <Image
+              src="/tokenleak-logo.png"
+              alt="TokenLeak"
+              width={24}
+              height={24}
+              className="h-6 w-6"
+              priority
+            />
+            <div className="text-sm font-semibold text-zinc-950">TokenLeak</div>
           </Link>
           <div className="text-xs text-zinc-500">AI Spend Audit</div>
         </div>
@@ -254,7 +281,7 @@ export default function AuditPage() {
                 </span>
                 <input
                   inputMode="numeric"
-                  className="h-10 rounded-lg border border-zinc-300 px-3 text-sm outline-none focus:border-zinc-900"
+                  className="h-10 rounded-lg border border-zinc-300 bg-white px-3 text-sm text-zinc-900 placeholder:text-zinc-400 outline-none focus:border-zinc-900"
                   value={teamSize}
                   onChange={(e) => {
                     const n = Number(e.target.value);
@@ -268,7 +295,7 @@ export default function AuditPage() {
                   Primary use case
                 </span>
                 <select
-                  className="h-10 rounded-lg border border-zinc-300 px-3 text-sm outline-none focus:border-zinc-900"
+                  className="h-10 rounded-lg border border-zinc-300 bg-white px-3 text-sm text-zinc-900 outline-none focus:border-zinc-900"
                   value={primaryUseCase}
                   onChange={(e) =>
                     setPrimaryUseCase(e.target.value as PrimaryUseCase)
@@ -293,13 +320,13 @@ export default function AuditPage() {
                   return (
                     <div
                       key={row.tool}
-                      className="rounded-xl border border-zinc-200 p-3"
+                      className="rounded-xl border border-zinc-200 p-4"
                     >
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <label className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <label className="flex items-start gap-3">
                           <input
                             type="checkbox"
-                            className="h-4 w-4 rounded border-zinc-300"
+                            className="mt-0.5 h-4 w-4 rounded border-zinc-300"
                             checked={row.enabled}
                             onChange={(e) => {
                               const enabled = e.target.checked;
@@ -310,14 +337,19 @@ export default function AuditPage() {
                               );
                             }}
                           />
-                          <span className="text-sm font-medium text-zinc-900">
-                            {toolLabel(row.tool)}
+                          <span>
+                            <div className="text-sm font-medium text-zinc-900">
+                              {toolLabel(row.tool)}
+                            </div>
+                            <div className="mt-0.5 text-xs text-zinc-500">
+                              {toolTagline(row.tool)}
+                            </div>
                           </span>
                         </label>
 
-                        <div className="flex flex-wrap items-center gap-2">
+                        <div className="grid w-full gap-2 sm:w-auto sm:grid-cols-3 sm:items-center">
                           <select
-                            className="h-9 rounded-lg border border-zinc-300 px-2 text-sm outline-none focus:border-zinc-900"
+                            className="h-10 rounded-lg border border-zinc-300 bg-white px-3 text-sm text-zinc-900 outline-none focus:border-zinc-900 disabled:bg-zinc-100 disabled:text-zinc-500"
                             value={row.plan}
                             onChange={(e) => {
                               const plan = e.target.value as ToolPlan["plan"];
@@ -336,58 +368,73 @@ export default function AuditPage() {
                             ))}
                           </select>
 
-                          <input
-                            className="h-9 w-28 rounded-lg border border-zinc-300 px-2 text-sm outline-none focus:border-zinc-900 disabled:bg-zinc-100"
-                            placeholder="$ / mo"
-                            inputMode="decimal"
-                            value={row.monthlySpendUsd || ""}
-                            onChange={(e) => {
-                              const n = Number(e.target.value);
-                              setTools((prev) =>
-                                prev.map((r, i) =>
-                                  i === idx
-                                    ? {
-                                        ...r,
-                                        monthlySpendUsd:
-                                          Number.isFinite(n) && n >= 0 ? n : 0,
-                                      }
-                                    : r,
-                                ),
-                              );
-                            }}
-                            disabled={!row.enabled}
-                          />
+                          <label className="relative">
+                            <span className="sr-only">Monthly spend</span>
+                            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-zinc-500">
+                              $
+                            </span>
+                            <input
+                              className="h-10 w-full rounded-lg border border-zinc-300 bg-white pl-7 pr-3 text-sm text-zinc-900 placeholder:text-zinc-400 outline-none focus:border-zinc-900 disabled:bg-zinc-100 disabled:text-zinc-500"
+                              placeholder="Monthly"
+                              inputMode="decimal"
+                              value={row.monthlySpendUsd || ""}
+                              onChange={(e) => {
+                                const n = Number(e.target.value);
+                                setTools((prev) =>
+                                  prev.map((r, i) =>
+                                    i === idx
+                                      ? {
+                                          ...r,
+                                          monthlySpendUsd:
+                                            Number.isFinite(n) && n >= 0
+                                              ? n
+                                              : 0,
+                                        }
+                                      : r,
+                                  ),
+                                );
+                              }}
+                              disabled={!row.enabled}
+                            />
+                          </label>
 
-                          <input
-                            className="h-9 w-20 rounded-lg border border-zinc-300 px-2 text-sm outline-none focus:border-zinc-900 disabled:bg-zinc-100"
-                            placeholder="Seats"
-                            inputMode="numeric"
-                            value={row.seats}
-                            onChange={(e) => {
-                              const n = Number(e.target.value);
-                              setTools((prev) =>
-                                prev.map((r, i) =>
-                                  i === idx
-                                    ? {
-                                        ...r,
-                                        seats:
-                                          Number.isFinite(n) && n >= 0
-                                            ? Math.floor(n)
-                                            : 0,
-                                      }
-                                    : r,
-                                ),
-                              );
-                            }}
-                            disabled={!row.enabled}
-                          />
+                          <label className="relative">
+                            <span className="sr-only">Seats</span>
+                            <input
+                              className="h-10 w-full rounded-lg border border-zinc-300 bg-white px-3 text-sm text-zinc-900 placeholder:text-zinc-400 outline-none focus:border-zinc-900 disabled:bg-zinc-100 disabled:text-zinc-500"
+                              placeholder="Seats"
+                              inputMode="numeric"
+                              value={row.seats}
+                              onChange={(e) => {
+                                const n = Number(e.target.value);
+                                setTools((prev) =>
+                                  prev.map((r, i) =>
+                                    i === idx
+                                      ? {
+                                          ...r,
+                                          seats:
+                                            Number.isFinite(n) && n >= 0
+                                              ? Math.floor(n)
+                                              : 0,
+                                        }
+                                      : r,
+                                  ),
+                                );
+                              }}
+                              disabled={!row.enabled}
+                            />
+                          </label>
                         </div>
                       </div>
 
                       {!row.enabled ? null : (
-                        <div className="mt-2 text-xs text-zinc-500">
-                          Tip: enter what you actually pay (including annual
-                          discounts averaged monthly).
+                        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-500">
+                          <div>
+                            Tip: enter what you actually pay (annual discounts averaged monthly).
+                          </div>
+                          <div className="font-medium text-zinc-700">
+                            {formatUsd(row.monthlySpendUsd)}/mo
+                          </div>
                         </div>
                       )}
                     </div>
@@ -516,14 +563,6 @@ export default function AuditPage() {
             </div>
 
             <div className="mt-6 flex flex-wrap gap-3">
-              <button
-                type="button"
-                className="inline-flex items-center justify-center rounded-lg bg-zinc-900 px-5 py-3 text-sm font-semibold text-white hover:bg-zinc-800"
-                disabled
-                title="Lead capture comes next (Supabase + email)."
-              >
-                Email me this report (coming next)
-              </button>
               <button
                 type="button"
                 className="inline-flex items-center justify-center rounded-lg border border-zinc-300 bg-white px-5 py-3 text-sm font-semibold text-zinc-900 hover:bg-zinc-50 disabled:opacity-60"
@@ -666,7 +705,7 @@ export default function AuditPage() {
                 <label className="grid gap-1">
                   <span className="text-xs font-medium text-zinc-700">Email</span>
                   <input
-                    className="h-10 rounded-lg border border-zinc-300 px-3 text-sm outline-none focus:border-zinc-900"
+                    className="h-10 rounded-lg border border-zinc-300 bg-white px-3 text-sm text-zinc-900 placeholder:text-zinc-400 outline-none focus:border-zinc-900"
                     value={leadEmail}
                     onChange={(e) => setLeadEmail(e.target.value)}
                     placeholder="you@company.com"
@@ -676,7 +715,7 @@ export default function AuditPage() {
                 <label className="grid gap-1">
                   <span className="text-xs font-medium text-zinc-700">Company (optional)</span>
                   <input
-                    className="h-10 rounded-lg border border-zinc-300 px-3 text-sm outline-none focus:border-zinc-900"
+                    className="h-10 rounded-lg border border-zinc-300 bg-white px-3 text-sm text-zinc-900 placeholder:text-zinc-400 outline-none focus:border-zinc-900"
                     value={leadCompany}
                     onChange={(e) => setLeadCompany(e.target.value)}
                     placeholder="Acme"
@@ -685,7 +724,7 @@ export default function AuditPage() {
                 <label className="grid gap-1">
                   <span className="text-xs font-medium text-zinc-700">Role (optional)</span>
                   <input
-                    className="h-10 rounded-lg border border-zinc-300 px-3 text-sm outline-none focus:border-zinc-900"
+                    className="h-10 rounded-lg border border-zinc-300 bg-white px-3 text-sm text-zinc-900 placeholder:text-zinc-400 outline-none focus:border-zinc-900"
                     value={leadRole}
                     onChange={(e) => setLeadRole(e.target.value)}
                     placeholder="Founder / Eng Manager"
