@@ -111,6 +111,12 @@ export default function AuditPage() {
   const [teamSize, setTeamSize] = useState<number>(3);
   const [primaryUseCase, setPrimaryUseCase] = useState<PrimaryUseCase>("coding");
   const [tools, setTools] = useState<ToolRow[]>(toolDefaults);
+  const [shareState, setShareState] = useState<
+    | { status: "idle" }
+    | { status: "creating" }
+    | { status: "ready"; url: string }
+    | { status: "error"; message: string }
+  >({ status: "idle" });
 
   useEffect(() => {
     const raw = readLocalStorageJson<unknown>(STORAGE_KEY);
@@ -442,16 +448,86 @@ export default function AuditPage() {
               </button>
               <button
                 type="button"
+                className="inline-flex items-center justify-center rounded-lg border border-zinc-300 bg-white px-5 py-3 text-sm font-semibold text-zinc-900 hover:bg-zinc-50 disabled:opacity-60"
+                disabled={audit.results.length === 0 || shareState.status === "creating"}
+                onClick={async () => {
+                  try {
+                    setShareState({ status: "creating" });
+                    const res = await fetch("/api/audits", {
+                      method: "POST",
+                      headers: { "content-type": "application/json" },
+                      body: JSON.stringify({ auditInput, auditResult: audit }),
+                    });
+                    if (!res.ok) {
+                      const text = await res.text();
+                      throw new Error(text || `HTTP ${res.status}`);
+                    }
+                    const data = (await res.json()) as { slug: string };
+                    const url = `${window.location.origin}/share/${data.slug}`;
+                    setShareState({ status: "ready", url });
+                  } catch (e) {
+                    setShareState({
+                      status: "error",
+                      message: e instanceof Error ? e.message : "Unknown error",
+                    });
+                  }
+                }}
+              >
+                Create share link
+              </button>
+              <button
+                type="button"
                 className="inline-flex items-center justify-center rounded-lg border border-zinc-300 bg-white px-5 py-3 text-sm font-semibold text-zinc-900 hover:bg-zinc-50"
                 onClick={() => {
                   setTeamSize(3);
                   setPrimaryUseCase("coding");
                   setTools(toolDefaults);
+                  setShareState({ status: "idle" });
                 }}
               >
                 Reset
               </button>
             </div>
+
+            {shareState.status === "ready" ? (
+              <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+                <div className="text-sm font-semibold text-emerald-900">
+                  Share link ready
+                </div>
+                <div className="mt-1 break-all text-sm text-emerald-900">
+                  <a className="underline" href={shareState.url}>
+                    {shareState.url}
+                  </a>
+                </div>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-700"
+                    onClick={async () => {
+                      await navigator.clipboard.writeText(shareState.url);
+                    }}
+                  >
+                    Copy
+                  </button>
+                  <button
+                    type="button"
+                    className="rounded-lg border border-emerald-200 bg-white px-3 py-2 text-xs font-semibold text-emerald-900 hover:bg-emerald-100"
+                    onClick={() => setShareState({ status: "idle" })}
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              </div>
+            ) : shareState.status === "error" ? (
+              <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3">
+                <div className="text-sm font-semibold text-red-900">
+                  Couldn’t create share link
+                </div>
+                <div className="mt-1 text-sm text-red-900">
+                  {shareState.message}
+                </div>
+              </div>
+            ) : null}
           </section>
         </div>
       </main>
