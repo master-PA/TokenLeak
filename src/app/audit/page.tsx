@@ -107,10 +107,50 @@ const persistedSchema = z.object({
   ),
 });
 
+function loadInitialState(): {
+  teamSize: number;
+  primaryUseCase: PrimaryUseCase;
+  tools: ToolRow[];
+} {
+  if (typeof window === "undefined") {
+    return { teamSize: 3, primaryUseCase: "coding", tools: toolDefaults };
+  }
+
+  const raw = readLocalStorageJson<unknown>(STORAGE_KEY);
+  const parsed = persistedSchema.safeParse(raw);
+  if (!parsed.success) {
+    return { teamSize: 3, primaryUseCase: "coding", tools: toolDefaults };
+  }
+
+  const byTool = new Map(parsed.data.tools.map((t) => [t.tool, t]));
+  const tools = toolDefaults.map((row) => {
+    const saved = byTool.get(row.tool);
+    if (!saved) return row;
+    const allowedPlans = toolPlanOptions[row.tool] as string[];
+    const plan = allowedPlans.includes(saved.plan) ? saved.plan : row.plan;
+    return {
+      ...row,
+      enabled: saved.enabled,
+      plan: plan as ToolPlan["plan"],
+      monthlySpendUsd: saved.monthlySpendUsd,
+      seats: saved.seats,
+    };
+  });
+
+  return {
+    teamSize: parsed.data.teamSize,
+    primaryUseCase: parsed.data.primaryUseCase,
+    tools,
+  };
+}
+
 export default function AuditPage() {
-  const [teamSize, setTeamSize] = useState<number>(3);
-  const [primaryUseCase, setPrimaryUseCase] = useState<PrimaryUseCase>("coding");
-  const [tools, setTools] = useState<ToolRow[]>(toolDefaults);
+  const initial = useMemo(() => loadInitialState(), []);
+  const [teamSize, setTeamSize] = useState<number>(initial.teamSize);
+  const [primaryUseCase, setPrimaryUseCase] = useState<PrimaryUseCase>(
+    initial.primaryUseCase,
+  );
+  const [tools, setTools] = useState<ToolRow[]>(initial.tools);
   const [shareState, setShareState] = useState<
     | { status: "idle" }
     | { status: "creating" }
@@ -133,33 +173,6 @@ export default function AuditPage() {
   const [leadCompany, setLeadCompany] = useState("");
   const [leadRole, setLeadRole] = useState("");
   const [honeypot, setHoneypot] = useState("");
-
-  useEffect(() => {
-    const raw = readLocalStorageJson<unknown>(STORAGE_KEY);
-    const parsed = persistedSchema.safeParse(raw);
-    if (!parsed.success) return;
-
-    setTeamSize(parsed.data.teamSize);
-    setPrimaryUseCase(parsed.data.primaryUseCase);
-
-    // Rebuild rows using defaults so we remain resilient to future schema changes.
-    const byTool = new Map(parsed.data.tools.map((t) => [t.tool, t]));
-    setTools((prev) =>
-      prev.map((row) => {
-        const saved = byTool.get(row.tool);
-        if (!saved) return row;
-        const allowedPlans = toolPlanOptions[row.tool] as string[];
-        const plan = allowedPlans.includes(saved.plan) ? saved.plan : row.plan;
-        return {
-          ...row,
-          enabled: saved.enabled,
-          plan: plan as ToolPlan["plan"],
-          monthlySpendUsd: saved.monthlySpendUsd,
-          seats: saved.seats,
-        };
-      }),
-    );
-  }, []);
 
   useEffect(() => {
     writeLocalStorageJson(STORAGE_KEY, {
@@ -187,6 +200,7 @@ export default function AuditPage() {
 
   useEffect(() => {
     if (audit.results.length === 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSummaryState({ status: "idle" });
       return;
     }
