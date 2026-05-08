@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { createSupabaseAdminLikeClient } from "@/lib/supabase";
+import { createSupabaseServerClient } from "@/lib/supabase";
 
 type PageProps = {
   params: Promise<{ slug: string }>;
@@ -57,7 +57,7 @@ type StoredAudit = {
 
 export async function generateMetadata(props: PageProps): Promise<Metadata> {
   const { slug } = await props.params;
-  const supabase = createSupabaseAdminLikeClient();
+  const supabase = createSupabaseServerClient();
   const { data } = await supabase
     .from("audits")
     .select("public_slug, public_json")
@@ -97,7 +97,7 @@ export async function generateMetadata(props: PageProps): Promise<Metadata> {
 
 export default async function SharePage(props: PageProps) {
   const { slug } = await props.params;
-  const supabase = createSupabaseAdminLikeClient();
+  const supabase = createSupabaseServerClient();
   const { data } = await supabase
     .from("audits")
     .select("public_slug, public_json")

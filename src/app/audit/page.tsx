@@ -117,6 +117,22 @@ export default function AuditPage() {
     | { status: "ready"; url: string }
     | { status: "error"; message: string }
   >({ status: "idle" });
+  const [summaryState, setSummaryState] = useState<
+    | { status: "idle" }
+    | { status: "loading" }
+    | { status: "ready"; summary: string }
+    | { status: "error" }
+  >({ status: "idle" });
+  const [leadState, setLeadState] = useState<
+    | { status: "idle" }
+    | { status: "submitting" }
+    | { status: "ok" }
+    | { status: "error"; message: string }
+  >({ status: "idle" });
+  const [leadEmail, setLeadEmail] = useState("");
+  const [leadCompany, setLeadCompany] = useState("");
+  const [leadRole, setLeadRole] = useState("");
+  const [honeypot, setHoneypot] = useState("");
 
   useEffect(() => {
     const raw = readLocalStorageJson<unknown>(STORAGE_KEY);
@@ -168,6 +184,33 @@ export default function AuditPage() {
   }, [teamSize, primaryUseCase, tools]);
 
   const audit = useMemo(() => runAudit(auditInput), [auditInput]);
+
+  useEffect(() => {
+    if (audit.results.length === 0) {
+      setSummaryState({ status: "idle" });
+      return;
+    }
+
+    let cancelled = false;
+    setSummaryState({ status: "loading" });
+    fetch("/api/summary", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ auditResult: audit }),
+    })
+      .then(async (r) => {
+        const j = (await r.json()) as { summary?: string };
+        if (!cancelled && j.summary) setSummaryState({ status: "ready", summary: j.summary });
+        if (!cancelled && !j.summary) setSummaryState({ status: "error" });
+      })
+      .catch(() => {
+        if (!cancelled) setSummaryState({ status: "error" });
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [audit]);
 
   return (
     <div className="min-h-full bg-zinc-50">
@@ -398,6 +441,27 @@ export default function AuditPage() {
 
             <div className="mt-5">
               <div className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                Personalized summary
+              </div>
+              <div className="mt-2 rounded-xl border border-zinc-200 bg-white p-4 text-sm text-zinc-700">
+                {audit.results.length === 0 ? (
+                  <div className="text-zinc-600">
+                    Add at least one tool to generate a summary.
+                  </div>
+                ) : summaryState.status === "loading" ? (
+                  <div className="text-zinc-600">Generating…</div>
+                ) : summaryState.status === "ready" ? (
+                  <p className="leading-6">{summaryState.summary}</p>
+                ) : (
+                  <div className="text-zinc-600">
+                    Summary unavailable right now.
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-5">
+              <div className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
                 Per-tool recommendations
               </div>
               <div className="mt-3 divide-y divide-zinc-200 rounded-xl border border-zinc-200">
@@ -528,6 +592,124 @@ export default function AuditPage() {
                 </div>
               </div>
             ) : null}
+
+            <div className="mt-6 rounded-2xl border border-zinc-200 bg-white p-4">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <div className="text-sm font-semibold text-zinc-950">
+                    Get this report by email
+                  </div>
+                  <div className="mt-1 text-sm text-zinc-600">
+                    Email is captured only after you see value. We’ll include your share link.
+                  </div>
+                </div>
+                {audit.flags.highSavings ? (
+                  <div className="rounded-xl bg-zinc-50 px-3 py-2 text-xs text-zinc-700">
+                    High-savings case: we’ll highlight a Credex consultation option in the email.
+                  </div>
+                ) : null}
+              </div>
+
+              <form
+                className="mt-4 grid gap-3 sm:grid-cols-2"
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  if (shareState.status !== "ready") {
+                    setLeadState({
+                      status: "error",
+                      message: "Create a share link first.",
+                    });
+                    return;
+                  }
+                  try {
+                    setLeadState({ status: "submitting" });
+                    const slug = new URL(shareState.url).pathname.split("/").pop() || "";
+                    const res = await fetch("/api/leads", {
+                      method: "POST",
+                      headers: { "content-type": "application/json" },
+                      body: JSON.stringify({
+                        auditSlug: slug,
+                        email: leadEmail,
+                        companyName: leadCompany || undefined,
+                        role: leadRole || undefined,
+                        teamSize,
+                        website: honeypot || undefined,
+                      }),
+                    });
+                    if (!res.ok) {
+                      const text = await res.text();
+                      throw new Error(text || `HTTP ${res.status}`);
+                    }
+                    setLeadState({ status: "ok" });
+                  } catch (err) {
+                    setLeadState({
+                      status: "error",
+                      message: err instanceof Error ? err.message : "Unknown error",
+                    });
+                  }
+                }}
+              >
+                <label className="grid gap-1">
+                  <span className="text-xs font-medium text-zinc-700">Email</span>
+                  <input
+                    className="h-10 rounded-lg border border-zinc-300 px-3 text-sm outline-none focus:border-zinc-900"
+                    value={leadEmail}
+                    onChange={(e) => setLeadEmail(e.target.value)}
+                    placeholder="you@company.com"
+                    required
+                  />
+                </label>
+                <label className="grid gap-1">
+                  <span className="text-xs font-medium text-zinc-700">Company (optional)</span>
+                  <input
+                    className="h-10 rounded-lg border border-zinc-300 px-3 text-sm outline-none focus:border-zinc-900"
+                    value={leadCompany}
+                    onChange={(e) => setLeadCompany(e.target.value)}
+                    placeholder="Acme"
+                  />
+                </label>
+                <label className="grid gap-1">
+                  <span className="text-xs font-medium text-zinc-700">Role (optional)</span>
+                  <input
+                    className="h-10 rounded-lg border border-zinc-300 px-3 text-sm outline-none focus:border-zinc-900"
+                    value={leadRole}
+                    onChange={(e) => setLeadRole(e.target.value)}
+                    placeholder="Founder / Eng Manager"
+                  />
+                </label>
+
+                {/* Honeypot */}
+                <label className="hidden">
+                  <span>Website</span>
+                  <input value={honeypot} onChange={(e) => setHoneypot(e.target.value)} />
+                </label>
+
+                <div className="flex items-end gap-3 sm:col-span-2">
+                  <button
+                    type="submit"
+                    className="inline-flex items-center justify-center rounded-lg bg-zinc-900 px-5 py-3 text-sm font-semibold text-white hover:bg-zinc-800 disabled:opacity-60"
+                    disabled={
+                      leadState.status === "submitting" || shareState.status !== "ready"
+                    }
+                  >
+                    {leadState.status === "submitting" ? "Sending…" : "Email me the report"}
+                  </button>
+                  {leadState.status === "ok" ? (
+                    <div className="text-sm font-medium text-emerald-700">
+                      Sent. Check your inbox.
+                    </div>
+                  ) : leadState.status === "error" ? (
+                    <div className="text-sm font-medium text-red-700">
+                      {leadState.message}
+                    </div>
+                  ) : (
+                    <div className="text-xs text-zinc-500">
+                      Requires Supabase + Resend env to fully work.
+                    </div>
+                  )}
+                </div>
+              </form>
+            </div>
           </section>
         </div>
       </main>

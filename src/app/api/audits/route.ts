@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { nanoid } from "nanoid";
-import { createSupabaseAdminLikeClient } from "@/lib/supabase";
+import { createSupabaseServerClient } from "@/lib/supabase";
 
 const createAuditSchema = z.object({
   auditInput: z.object({
@@ -63,7 +63,7 @@ export async function POST(req: Request) {
   }
 
   const slug = nanoid(10);
-  const supabase = createSupabaseAdminLikeClient();
+  const supabase = createSupabaseServerClient();
 
   // Public payload intentionally excludes identifying info (email/company).
   const publicJson = {
