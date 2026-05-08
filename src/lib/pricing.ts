@@ -42,17 +42,15 @@ export function getListPriceUsdPerMonth(
       break;
     }
     case "claude":
-      // Claude pricing varies by region and enterprise contracts; set placeholders.
-      // We'll finalize exact values and citations in PRICING_DATA.md.
       switch (toolPlan.plan) {
         case "free":
           return { basis: "per_seat", usdPerMonth: 0 };
         case "pro":
           return { basis: "per_seat", usdPerMonth: 20 };
         case "max":
-          return { basis: "per_seat", usdPerMonth: 0 }; // tiered; TBD
+          return { basis: "per_seat", usdPerMonth: 0 }; // Not publicly available
         case "team":
-          return { basis: "per_seat", usdPerMonth: 0 }; // TBD
+          return { basis: "per_seat", usdPerMonth: 30 };
         case "enterprise":
           return { basis: "per_seat", usdPerMonth: 0 }; // sales
         case "api_direct":
@@ -78,9 +76,9 @@ export function getListPriceUsdPerMonth(
     case "gemini":
       switch (toolPlan.plan) {
         case "pro":
-          return { basis: "per_seat", usdPerMonth: 0 }; // TBD
+          return { basis: "per_seat", usdPerMonth: 20 }; // Advanced
         case "ultra":
-          return { basis: "per_seat", usdPerMonth: 0 }; // TBD
+          return { basis: "per_seat", usdPerMonth: 20 }; // Advanced covers Ultra 1.0
         case "api":
           return { basis: "metered", usdPerMonth: 0 };
       }
@@ -90,13 +88,12 @@ export function getListPriceUsdPerMonth(
         case "free":
           return { basis: "per_seat", usdPerMonth: 0 };
         case "pro":
-          return { basis: "per_seat", usdPerMonth: 0 }; // TBD
+          return { basis: "per_seat", usdPerMonth: 20 };
         case "team":
-          return { basis: "per_seat", usdPerMonth: 0 }; // TBD
+          return { basis: "per_seat", usdPerMonth: 30 };
       }
       break;
   }
 
   return undefined;
 }
-
