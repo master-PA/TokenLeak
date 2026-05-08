@@ -7,7 +7,7 @@ import type { PrimaryUseCase, SpendAuditInput, ToolPlan } from "@/lib/tools";
 import { runAudit } from "@/lib/auditEngine";
 import { readLocalStorageJson, writeLocalStorageJson } from "@/lib/localStorage";
 
-const STORAGE_KEY = "spendlens:v1:audit_input";
+const STORAGE_KEY = "tokenleak:v1:audit_input";
 
 type ToolRow = {
   enabled: boolean;
@@ -168,7 +168,7 @@ export default function AuditPage() {
       <header className="border-b border-zinc-200 bg-white">
         <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-4 py-4">
           <Link href="/" className="text-sm font-semibold text-zinc-950">
-            SpendLens
+            TokenLeak
           </Link>
           <div className="text-xs text-zinc-500">AI Spend Audit</div>
         </div>

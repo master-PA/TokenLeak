@@ -7,7 +7,7 @@ export default function Home() {
         <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-4 py-4">
           <div className="flex items-baseline gap-2">
             <div className="text-sm font-semibold tracking-tight text-zinc-950">
-              SpendLens
+              TokenLeak
             </div>
             <div className="text-xs text-zinc-500">AI Spend Audit</div>
           </div>
