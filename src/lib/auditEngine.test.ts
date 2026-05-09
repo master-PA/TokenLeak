@@ -1,80 +1,103 @@
-import { describe, expect, test } from "vitest";
-import { runAudit } from "@/lib/auditEngine";
-import type { SpendAuditInput } from "@/lib/tools";
+import { describe, it, expect } from "vitest";
+import { runAudit } from "./auditEngine";
+import type { SpendAuditInput } from "./tools";
 
-function baseInput(overrides?: Partial<SpendAuditInput>): SpendAuditInput {
-  return {
-    teamSize: 3,
-    primaryUseCase: "coding",
-    items: [],
-    ...overrides,
-  };
-}
-
-describe("runAudit", () => {
-  test("computes totals and annual savings", () => {
-    const input = baseInput({
-      items: [
-        { toolPlan: { tool: "cursor", plan: "pro" }, monthlySpendUsd: 80, seats: 2 },
-      ],
-    });
-
-    const out = runAudit(input);
-    expect(out.totalCurrentMonthlySpendUsd).toBe(80);
-    expect(out.totalAnnualSavingsUsd).toBe(out.totalMonthlySavingsUsd * 12);
-  });
-
-  test("flags high savings when > $500/mo", () => {
-    const input = baseInput({
+describe("auditEngine", () => {
+  it("should recommend keep when usage matches list price and team size", () => {
+    const input: SpendAuditInput = {
+      teamSize: 1,
+      primaryUseCase: "coding",
       items: [
         {
-          toolPlan: { tool: "github_copilot", plan: "business" },
-          monthlySpendUsd: 2000,
-          seats: 10,
+          toolPlan: { tool: "cursor", plan: "pro" },
+          monthlySpendUsd: 20,
+          seats: 1,
         },
       ],
-    });
-
-    const out = runAudit(input);
-    expect(out.flags.highSavings).toBe(out.totalMonthlySavingsUsd > 500);
+    };
+    const summary = runAudit(input);
+    expect(summary.results[0].recommendedAction).toBe("keep");
+    expect(summary.totalMonthlySavingsUsd).toBe(0);
   });
 
-  test("flags already optimal when < $100/mo savings", () => {
-    const input = baseInput({
+  it("should detect unused seats as a downgrade", () => {
+    const input: SpendAuditInput = {
+      teamSize: 2,
+      primaryUseCase: "coding",
       items: [
-        { toolPlan: { tool: "chatgpt", plan: "plus" }, monthlySpendUsd: 20, seats: 1 },
+        {
+          toolPlan: { tool: "cursor", plan: "pro" },
+          monthlySpendUsd: 100,
+          seats: 5,
+        },
       ],
-    });
-
-    const out = runAudit(input);
-    expect(out.flags.alreadyOptimal).toBe(true);
+    };
+    const summary = runAudit(input);
+    expect(summary.results[0].recommendedAction).toBe("downgrade_same_vendor");
+    expect(summary.results[0].recommendedMonthlySpendUsd).toBe(40);
+    expect(summary.results[0].monthlySavingsUsd).toBe(60);
+    expect(summary.totalMonthlySavingsUsd).toBe(60);
   });
 
-  test("never produces negative savings", () => {
-    const input = baseInput({
+  it("should detect team plan for 1 user as an overkill downgrade", () => {
+    const input: SpendAuditInput = {
+      teamSize: 1,
+      primaryUseCase: "writing",
       items: [
-        { toolPlan: { tool: "cursor", plan: "pro" }, monthlySpendUsd: -10, seats: 1 },
+        {
+          toolPlan: { tool: "chatgpt", plan: "team" },
+          monthlySpendUsd: 30,
+          seats: 1,
+        },
       ],
-    });
-
-    const out = runAudit(input);
-    expect(out.totalMonthlySavingsUsd).toBeGreaterThanOrEqual(0);
-    for (const r of out.results) {
-      expect(r.monthlySavingsUsd).toBeGreaterThanOrEqual(0);
-    }
+    };
+    const summary = runAudit(input);
+    expect(summary.results[0].recommendedAction).toBe("downgrade_same_vendor");
+    expect(summary.results[0].recommendedMonthlySpendUsd).toBe(20);
+    expect(summary.totalMonthlySavingsUsd).toBe(10);
   });
 
-  test("review_pricing triggers when spend is > 20% above retail for known per-seat pricing", () => {
-    const input = baseInput({
+  it("should recommend dropping redundant tools if primary use case is coding", () => {
+    const input: SpendAuditInput = {
+      teamSize: 1,
+      primaryUseCase: "coding",
       items: [
-        // Cursor Pro list price modeled as $20/seat/mo in pricing.ts
-        { toolPlan: { tool: "cursor", plan: "pro" }, monthlySpendUsd: 60, seats: 2 },
+        {
+          toolPlan: { tool: "cursor", plan: "pro" },
+          monthlySpendUsd: 20,
+          seats: 1,
+        },
+        {
+          toolPlan: { tool: "chatgpt", plan: "plus" },
+          monthlySpendUsd: 20,
+          seats: 1,
+        },
       ],
-    });
+    };
+    const summary = runAudit(input);
+    // Cursor should be kept
+    expect(summary.results[0].recommendedAction).toBe("keep");
+    // ChatGPT Plus should be dropped
+    expect(summary.results[1].recommendedAction).toBe("switch_tool");
+    expect(summary.results[1].recommendedMonthlySpendUsd).toBe(0);
+    expect(summary.totalMonthlySavingsUsd).toBe(20);
+  });
 
-    const out = runAudit(input);
-    expect(out.results[0]?.recommendedAction).toBe("review_pricing");
-    expect(out.results[0]?.monthlySavingsUsd).toBe(20);
+  it("should flag high API spend for Credex", () => {
+    const input: SpendAuditInput = {
+      teamSize: 10,
+      primaryUseCase: "mixed",
+      items: [
+        {
+          toolPlan: { tool: "anthropic_api", plan: "api_direct" },
+          monthlySpendUsd: 600,
+          seats: 0,
+        },
+      ],
+    };
+    const summary = runAudit(input);
+    expect(summary.results[0].recommendedAction).toBe("buy_via_credits");
+    expect(summary.flags.highSavings).toBe(false); // Because savings is 120, not >500
+    expect(summary.totalMonthlySavingsUsd).toBe(120);
   });
 });
-
