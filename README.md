@@ -4,11 +4,10 @@ TokenLeak is a free web app for **founders and engineering managers** to audit w
 
 ## Screenshots / demo
 > [!WARNING]
-> **TODO FOR USER:** You must add 3+ screenshots and a 30s Loom/YouTube link here.
+> **TODO FOR USER:** Please save the screenshots you provided into the `public/` directory (e.g., `public/screenshot1.png`) and replace this block with `![screenshot](/screenshot1.png)`.
 
 ## Deployed URL
-> [!WARNING]
-> **TODO FOR USER:** You must deploy this to Vercel/Netlify and paste the live URL here. Localhost screenshots do not count.
+Live at: [https://token-leak-bice.vercel.app](https://token-leak-bice.vercel.app)
 
 ## Quick start (local)
 
