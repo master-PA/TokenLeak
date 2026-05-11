@@ -21,5 +21,6 @@ Totals and per-tool results are provided as JSON.
 - Constrains output to a single paragraph for UI fit
 
 ## What I tried that didn’t work (notes)
-- TODO
-
+- Initially, I tried passing the raw user input (spend, seats, team size) directly to the LLM and asking it to calculate the savings and recommend downgrades. This failed spectacularly. The LLM would confidently assert that "Cursor Pro costs $30/month" or fail basic arithmetic when multiplying seats by list price.
+- I tried adding a system prompt that included the entire `PRICING_DATA.md` file to give the LLM context. While this improved accuracy slightly, it still struggled with the edge case logic (e.g., "if they have ChatGPT Plus and Claude Pro for coding, drop one").
+- Ultimately, this proved that the best use of an LLM in a financial tool is *not* as a calculator, but as a narrator. By hardcoding the deterministic math in TypeScript and only passing the *results* to the LLM, the output became 100% reliable while still feeling personalized to the user.

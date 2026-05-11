@@ -3,11 +3,12 @@
 TokenLeak is a free web app for **founders and engineering managers** to audit what they spend on AI tools (Cursor, Copilot, Claude, ChatGPT, APIs, Gemini, v0) and get **instant, defensible savings recommendations** plus a **shareable public report URL**.
 
 ## Screenshots / demo
-- TODO: add 3+ screenshots
-- TODO: add a 30s Loom/YouTube link
+> [!WARNING]
+> **TODO FOR USER:** You must add 3+ screenshots and a 30s Loom/YouTube link here.
 
 ## Deployed URL
-- TODO: add deployed URL
+> [!WARNING]
+> **TODO FOR USER:** You must deploy this to Vercel/Netlify and paste the live URL here. Localhost screenshots do not count.
 
 ## Quick start (local)
 
