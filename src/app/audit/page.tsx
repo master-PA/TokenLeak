@@ -215,35 +215,41 @@ export default function AuditPage() {
     };
   }, [teamSize, primaryUseCase, tools]);
 
-  const audit = useMemo(() => runAudit(auditInput), [auditInput]);
+  const [auditResult, setAuditResult] = useState<ReturnType<typeof runAudit> | null>(null);
 
-  useEffect(() => {
-    if (audit.results.length === 0) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+  const handleRunAudit = () => {
+    const result = runAudit(auditInput);
+    setAuditResult(result);
+
+    if (result.results.length === 0) {
       setSummaryState({ status: "idle" });
       return;
     }
 
-    let cancelled = false;
     setSummaryState({ status: "loading" });
     fetch("/api/summary", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ auditResult: audit }),
+      body: JSON.stringify({ auditResult: result }),
     })
       .then(async (r) => {
         const j = (await r.json()) as { summary?: string };
-        if (!cancelled && j.summary) setSummaryState({ status: "ready", summary: j.summary });
-        if (!cancelled && !j.summary) setSummaryState({ status: "error" });
+        if (j.summary) setSummaryState({ status: "ready", summary: j.summary });
+        else setSummaryState({ status: "error" });
       })
       .catch(() => {
-        if (!cancelled) setSummaryState({ status: "error" });
+        setSummaryState({ status: "error" });
       });
+  };
 
-    return () => {
-      cancelled = true;
-    };
-  }, [audit]);
+  const audit = auditResult || {
+    totalMonthlySavingsUsd: 0,
+    totalAnnualSavingsUsd: 0,
+    results: [],
+    flags: { highSavings: false, alreadyOptimal: false },
+    currentMonthlySpendUsd: 0,
+    recommendedMonthlySpendUsd: 0
+  };
 
   return (
     <div className="min-h-full bg-zinc-50">
@@ -442,6 +448,16 @@ export default function AuditPage() {
                 })}
               </div>
             </div>
+
+            <div className="mt-8 flex justify-end border-t border-zinc-200 pt-5">
+              <button
+                type="button"
+                className="inline-flex items-center justify-center rounded-lg bg-zinc-900 px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:ring-offset-2"
+                onClick={handleRunAudit}
+              >
+                Run Audit
+              </button>
+            </div>
           </section>
 
           <section className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
@@ -468,7 +484,12 @@ export default function AuditPage() {
             </div>
 
             <div className="mt-5 rounded-xl bg-zinc-50 p-4">
-              {audit.flags.highSavings ? (
+              {!auditResult ? (
+                <div className="space-y-1">
+                  <div className="text-sm font-semibold text-zinc-950">Ready to audit</div>
+                  <div className="text-sm text-zinc-700">Click &quot;Run Audit&quot; to analyze your spend.</div>
+                </div>
+              ) : audit.flags.highSavings ? (
                 <div className="space-y-1">
                   <div className="text-sm font-semibold text-zinc-950">
                     High-savings stack
@@ -505,7 +526,9 @@ export default function AuditPage() {
                 Personalized summary
               </div>
               <div className="mt-2 rounded-xl border border-zinc-200 bg-white p-4 text-sm text-zinc-700">
-                {audit.results.length === 0 ? (
+                {!auditResult ? (
+                  <div className="text-zinc-600">Click &quot;Run Audit&quot; to generate a personalized summary.</div>
+                ) : audit.results.length === 0 ? (
                   <div className="text-zinc-600">
                     Add at least one tool to generate a summary.
                   </div>
@@ -526,7 +549,11 @@ export default function AuditPage() {
                 Per-tool recommendations
               </div>
               <div className="mt-3 divide-y divide-zinc-200 rounded-xl border border-zinc-200">
-                {audit.results.length === 0 ? (
+                {!auditResult ? (
+                  <div className="p-4 text-sm text-zinc-600">
+                    Click &quot;Run Audit&quot; to see per-tool recommendations.
+                  </div>
+                ) : audit.results.length === 0 ? (
                   <div className="p-4 text-sm text-zinc-600">
                     Select at least one tool to see an audit.
                   </div>

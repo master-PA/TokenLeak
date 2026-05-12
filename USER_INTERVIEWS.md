@@ -1,7 +1,6 @@
 # USER_INTERVIEWS
 
-> [!WARNING]
-> **DO NOT FORGET TO FILL THIS OUT.** The assignment explicitly states that fabricated interviews are an instant reject. You must talk to three real humans and fill in the details below.
+
 
 ## Interview 1
 **Person:** TODO  
