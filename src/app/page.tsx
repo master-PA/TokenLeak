@@ -11,9 +11,9 @@ export default function Home() {
               <Image
                 src="/tokenleak-logo.png"
                 alt="TokenLeak"
-                width={36}
-                height={24}
-                className="h-6 w-auto"
+                width={32}
+                height={32}
+                className="h-8 w-8"
                 priority
               />
               <div className="text-sm font-semibold tracking-tight text-zinc-950">
