@@ -259,9 +259,9 @@ export default function AuditPage() {
             <Image
               src="/tokenleak-logo.png"
               alt="TokenLeak"
-              width={32}
-              height={32}
-              className="h-8 w-8"
+              width={48}
+              height={48}
+              className="h-12 w-12"
               priority
             />
             <div className="text-sm font-semibold text-zinc-950">TokenLeak</div>
